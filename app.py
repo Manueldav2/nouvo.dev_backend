@@ -127,7 +127,10 @@ def generate():
                 api_key_preview = openai.api_key[:4] + "..." if openai.api_key else "None"
                 logger.info(f"Using OpenAI API key: {api_key_preview}")
                 
-                client = openai.OpenAI(api_key=openai.api_key)
+                client = openai.OpenAI(
+                    api_key=os.getenv('OPENAI_API_KEY'),
+                    base_url="https://api.openai.com/v1"
+                )
                 response = client.chat.completions.create(
                     model="gpt-4",
                     messages=[
