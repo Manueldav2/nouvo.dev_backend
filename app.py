@@ -20,13 +20,17 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Define allowed origins
+ALLOWED_ORIGINS = [
+    'https://nouvo.dev',
+    'https://nouvo-dev.web.app',
+    'http://localhost:3000'
+]
+
 # Configure CORS with more specific settings
 CORS(app, 
      resources={r"/*": {
-         "origins": [
-             os.getenv('FRONTEND_URL', 'https://nouvo.dev'),
-             'https://nouvo-dev.web.app'
-         ],
+         "origins": ALLOWED_ORIGINS,
          "methods": ["GET", "POST", "OPTIONS"],
          "allow_headers": ["Content-Type", "Authorization", "Accept"],
          "expose_headers": ["Content-Type", "Authorization"],
@@ -39,9 +43,8 @@ CORS(app,
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
-    allowed_origins = ['https://nouvo.dev', 'https://nouvo-dev.web.app', 'http://localhost:3000']
     
-    if origin in allowed_origins:
+    if origin in ALLOWED_ORIGINS:
         response.headers.add('Access-Control-Allow-Origin', origin)
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
         response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
