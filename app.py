@@ -26,7 +26,7 @@ def generate():
             return jsonify({'error': 'User input is required'}), 400
 
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
