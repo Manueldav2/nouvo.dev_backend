@@ -8,10 +8,23 @@ import openai
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": os.getenv('FRONTEND_URL', 'https://nouvo.dev')}})
+CORS(app, 
+     resources={r"/*": {
+         "origins": [
+             os.getenv('FRONTEND_URL', 'https://nouvo.dev'),
+             'https://nouvo-dev.web.app'
+         ],
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True
+     }})
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
 
 @app.route('/api/generate', methods=['POST', 'OPTIONS'])
 def generate():
