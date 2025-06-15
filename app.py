@@ -15,19 +15,15 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
+# Simplified CORS configuration
 CORS(app, 
-     resources={r"/*": {
-         "origins": [
-             os.getenv('FRONTEND_URL', 'https://nouvo.dev'),
-             'https://nouvo-dev.web.app'
-         ],
-         "methods": ["GET", "POST", "OPTIONS"],
-         "allow_headers": ["Content-Type", "Authorization", "Accept"],
-         "expose_headers": ["Content-Type", "Authorization"],
-         "supports_credentials": True,
-         "max_age": 3600,
-         "credentials": True
-     }})
+     origins=[
+         'https://nouvo.dev',
+         'https://nouvo-dev.web.app',
+         'http://localhost:3000'
+     ],
+     allow_credentials=True,
+     supports_credentials=True)
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
