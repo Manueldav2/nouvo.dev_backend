@@ -6,9 +6,13 @@ import openai
 import logging
 from functools import wraps
 import time
+import traceback
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -20,15 +24,15 @@ app = Flask(__name__)
 CORS(app, 
      resources={r"/*": {
          "origins": [
-             'https://nouvo.dev',
-             'https://nouvo-dev.web.app',
-             'http://localhost:3000'
+             os.getenv('FRONTEND_URL', 'https://nouvo.dev'),
+             'https://nouvo-dev.web.app'
          ],
          "methods": ["GET", "POST", "OPTIONS"],
          "allow_headers": ["Content-Type", "Authorization", "Accept"],
-         "supports_credentials": True,
          "expose_headers": ["Content-Type", "Authorization"],
-         "max_age": 3600
+         "supports_credentials": True,
+         "max_age": 3600,
+         "credentials": True
      }})
 
 # Add CORS headers to all responses
@@ -47,40 +51,51 @@ def add_cors_headers(response):
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
+if not openai.api_key:
+    logger.error("OpenAI API key is not set in environment variables")
 
 def retry_on_failure(max_retries=3, delay=1):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            last_error = None
             for attempt in range(max_retries):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
-                    if attempt == max_retries - 1:
-                        logger.error(f"Final attempt failed: {str(e)}")
-                        raise
+                    last_error = e
                     logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
-                    time.sleep(delay)
-            return None
+                    if attempt < max_retries - 1:
+                        time.sleep(delay)
+            logger.error(f"All {max_retries} attempts failed. Last error: {str(last_error)}")
+            raise last_error
         return wrapper
     return decorator
 
 def validate_input(data):
-    if not isinstance(data, dict):
-        return False, "Invalid request format"
-    
-    user_input = data.get('userInput')
-    if not user_input:
-        return False, "User input is required"
-    
-    if not isinstance(user_input, str):
-        return False, "User input must be a string"
-    
-    stripped_input = user_input.strip()
-    if len(stripped_input) < 10:
-        return False, "Please provide more detailed input (minimum 10 characters)"
-    
-    return True, stripped_input
+    try:
+        if not isinstance(data, dict):
+            logger.warning(f"Invalid request format: {type(data)}")
+            return False, "Invalid request format"
+        
+        user_input = data.get('userInput')
+        if not user_input:
+            logger.warning("Missing userInput in request")
+            return False, "User input is required"
+        
+        if not isinstance(user_input, str):
+            logger.warning(f"Invalid userInput type: {type(user_input)}")
+            return False, "User input must be a string"
+        
+        stripped_input = user_input.strip()
+        if len(stripped_input) < 10:
+            logger.warning(f"Input too short: {len(stripped_input)} characters")
+            return False, "Please provide more detailed input (minimum 10 characters)"
+        
+        return True, stripped_input
+    except Exception as e:
+        logger.error(f"Error in validate_input: {str(e)}")
+        return False, "Error validating input"
 
 @app.route('/', methods=['GET', 'POST', 'OPTIONS'])
 def root():
@@ -96,54 +111,66 @@ def generate():
         return '', 204
 
     try:
+        logger.info("Received generate request")
         data = request.get_json()
-        is_valid, result = validate_input(data)
+        logger.debug(f"Request data: {data}")
         
+        is_valid, result = validate_input(data)
         if not is_valid:
+            logger.warning(f"Invalid input: {result}")
             return jsonify({'error': result}), 400
 
-        user_input = result  # This is the validated and stripped input
+        user_input = result
+        logger.info(f"Processing input: {user_input[:50]}...")
 
         @retry_on_failure(max_retries=3, delay=1)
         def get_openai_response():
-            return openai.ChatCompletion.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant representing Nouvo, a professional web development company. When providing website suggestions, frame them as if Nouvo has already built similar solutions. Include specific features, design elements, and user engagement strategies that Nouvo has successfully implemented. Always mention that these are solutions Nouvo has experience with and can build for the client."
-                    },
-                    {
-                        "role": "user",
-                        "content": user_input
-                    }
-                ],
-                temperature=0.7,
-                max_tokens=500
-            )
+            try:
+                return openai.ChatCompletion.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant representing Nouvo, a professional web development company. When providing website suggestions, frame them as if Nouvo has already built similar solutions. Include specific features, design elements, and user engagement strategies that Nouvo has successfully implemented. Always mention that these are solutions Nouvo has experience with and can build for the client."
+                        },
+                        {
+                            "role": "user",
+                            "content": user_input
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=500
+                )
+            except Exception as e:
+                logger.error(f"OpenAI API call failed: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                raise
 
         try:
             response = get_openai_response()
+            logger.info("Successfully received OpenAI response")
         except Exception as e:
             logger.error(f"OpenAI API error: {str(e)}")
             return jsonify({
-                'error': 'Service temporarily unavailable. Please try again later.',
+                'error': 'Our AI service is temporarily unavailable. Please try again in a few minutes.',
                 'details': str(e) if app.debug else None
             }), 503
 
         if not response.choices or not response.choices[0].message.content:
-            logger.error("Invalid response from OpenAI API")
+            logger.error("Empty response from OpenAI API")
             return jsonify({
                 'error': 'Unable to generate response. Please try again.',
                 'details': 'Empty response from AI service'
             }), 500
 
+        logger.info("Successfully generated response")
         return jsonify({'suggestion': response.choices[0].message.content})
 
     except Exception as e:
         logger.error(f"Unexpected error in generate route: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
-            'error': 'An unexpected error occurred',
+            'error': 'An unexpected error occurred. Please try again later.',
             'details': str(e) if app.debug else None
         }), 500
 
