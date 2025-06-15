@@ -27,47 +27,13 @@ ALLOWED_ORIGINS = [
     'http://localhost:3000'
 ]
 
-# Configure CORS with more specific settings
+# Simplified CORS configuration - let flask-cors handle most of it
 CORS(app, 
-     resources={r"/*": {
-         "origins": ALLOWED_ORIGINS,
-         "methods": ["GET", "POST", "OPTIONS"],
-         "allow_headers": ["Content-Type", "Authorization", "Accept"],
-         "expose_headers": ["Content-Type", "Authorization"],
-         "supports_credentials": True,
-         "max_age": 3600,
-         "credentials": True
-     }})
-
-# Add CORS headers to all responses
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get('Origin')
-    
-    if origin in ALLOWED_ORIGINS:
-        response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Vary', 'Origin')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        response.headers.add('Access-Control-Max-Age', '3600')
-    
-    return response
-
-# Handle preflight requests
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        origin = request.headers.get('Origin')
-        if origin in ALLOWED_ORIGINS:
-            response.headers.add('Access-Control-Allow-Origin', origin)
-            response.headers.add('Vary', 'Origin')
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
-            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
-            response.headers.add('Access-Control-Max-Age', '3600')
-        return response
+     origins=ALLOWED_ORIGINS,
+     methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "Accept"],
+     supports_credentials=True,
+     max_age=3600)
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -120,7 +86,10 @@ def validate_input(data):
 @app.route('/', methods=['GET', 'POST', 'OPTIONS'])
 def root():
     if request.method == 'OPTIONS':
-        return '', 204
+        # Explicit OPTIONS handling for root route
+        response = jsonify({'status': 'ok'})
+        response.status_code = 200
+        return response
     if request.method == 'POST':
         return redirect('/api/generate', code=307)
     return jsonify({'status': 'healthy'}), 200
@@ -128,7 +97,10 @@ def root():
 @app.route('/api/generate', methods=['POST', 'OPTIONS'])
 def generate():
     if request.method == 'OPTIONS':
-        return '', 204
+        # Explicit OPTIONS handling with proper response
+        response = jsonify({'status': 'ok'})
+        response.status_code = 200
+        return response
 
     try:
         logger.info("Received generate request")
@@ -220,6 +192,11 @@ def generate():
             'error': 'An unexpected error occurred. Please try again later.',
             'details': str(e) if app.debug else None
         }), 500
+
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'timestamp': time.time()}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000))) 
