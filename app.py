@@ -126,8 +126,9 @@ def generate():
         @retry_on_failure(max_retries=3, delay=1)
         def get_openai_response():
             try:
-                return openai.ChatCompletion.create(
-                    model="gpt-4o-mini",
+                logger.info("Attempting OpenAI API call")
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
                     messages=[
                         {
                             "role": "system",
@@ -141,6 +142,17 @@ def generate():
                     temperature=0.7,
                     max_tokens=500
                 )
+                logger.info("OpenAI API call successful")
+                return response
+            except openai.error.AuthenticationError as e:
+                logger.error(f"OpenAI Authentication Error: {str(e)}")
+                raise Exception("OpenAI API key is invalid or expired")
+            except openai.error.RateLimitError as e:
+                logger.error(f"OpenAI Rate Limit Error: {str(e)}")
+                raise Exception("OpenAI API rate limit exceeded")
+            except openai.error.APIError as e:
+                logger.error(f"OpenAI API Error: {str(e)}")
+                raise Exception("OpenAI API is currently experiencing issues")
             except Exception as e:
                 logger.error(f"OpenAI API call failed: {str(e)}")
                 logger.error(f"Traceback: {traceback.format_exc()}")
