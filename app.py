@@ -15,15 +15,35 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
-# Simplified CORS configuration
+
+# Configure CORS with more specific settings
 CORS(app, 
-     origins=[
-         'https://nouvo.dev',
-         'https://nouvo-dev.web.app',
-         'http://localhost:3000'
-     ],
-     allow_credentials=True,
-     supports_credentials=True)
+     resources={r"/*": {
+         "origins": [
+             'https://nouvo.dev',
+             'https://nouvo-dev.web.app',
+             'http://localhost:3000'
+         ],
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization", "Accept"],
+         "supports_credentials": True,
+         "expose_headers": ["Content-Type", "Authorization"],
+         "max_age": 3600
+     }})
+
+# Add CORS headers to all responses
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = ['https://nouvo.dev', 'https://nouvo-dev.web.app', 'http://localhost:3000']
+    
+    if origin in allowed_origins:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+    
+    return response
 
 # Configure OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
