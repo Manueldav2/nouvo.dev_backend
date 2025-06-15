@@ -2,13 +2,30 @@ import { NextResponse } from 'next/server';
 import { config } from '../../../app/config';
 
 export async function POST(req: Request) {
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': config.cors.origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+
   try {
     const { userInput } = await req.json();
 
     if (!userInput) {
       return NextResponse.json(
         { error: 'User input is required' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': config.cors.origin,
+          }
+        }
       );
     }
 
@@ -44,7 +61,12 @@ export async function POST(req: Request) {
       });
       return NextResponse.json(
         { error: 'Failed to generate website idea' },
-        { status: response.status }
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': config.cors.origin,
+          }
+        }
       );
     }
 
@@ -54,19 +76,34 @@ export async function POST(req: Request) {
       console.error('Invalid OpenAI response:', data);
       return NextResponse.json(
         { error: 'Invalid response from AI service' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': config.cors.origin,
+          }
+        }
       );
     }
 
-    return NextResponse.json({ 
-      suggestion: data.choices[0].message.content 
-    });
+    return NextResponse.json(
+      { suggestion: data.choices[0].message.content },
+      {
+        headers: {
+          'Access-Control-Allow-Origin': config.cors.origin,
+        }
+      }
+    );
 
   } catch (error) {
     console.error('Error in generate route:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': config.cors.origin,
+        }
+      }
     );
   }
 } 
