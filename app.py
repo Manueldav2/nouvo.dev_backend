@@ -198,5 +198,14 @@ def generate():
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': time.time()}), 200
 
+# Add a minimal CORS test endpoint
+@app.route('/cors-test', methods=['GET', 'OPTIONS'])
+def cors_test():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.status_code = 200
+        return response
+    return jsonify({'message': 'CORS test successful'}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000))) 
