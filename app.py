@@ -127,11 +127,7 @@ def generate():
                 api_key_preview = openai.api_key[:4] + "..." if openai.api_key else "None"
                 logger.info(f"Using OpenAI API key: {api_key_preview}")
                 
-                client = openai.OpenAI(
-                    api_key=os.getenv('OPENAI_API_KEY'),
-                    base_url="https://api.openai.com/v1"
-                )
-                response = client.chat.completions.create(
+                response = openai.ChatCompletion.create(
                     model="gpt-4",
                     messages=[
                         {
@@ -148,13 +144,13 @@ def generate():
                 )
                 logger.info("OpenAI API call successful")
                 return response
-            except openai.AuthenticationError as e:
+            except openai.error.AuthenticationError as e:
                 logger.error(f"OpenAI Authentication Error: {str(e)}")
                 raise Exception("OpenAI API key is invalid or expired")
-            except openai.RateLimitError as e:
+            except openai.error.RateLimitError as e:
                 logger.error(f"OpenAI Rate Limit Error: {str(e)}")
                 raise Exception("OpenAI API rate limit exceeded")
-            except openai.APIError as e:
+            except openai.error.APIError as e:
                 logger.error(f"OpenAI API Error: {str(e)}")
                 raise Exception("OpenAI API is currently experiencing issues")
             except Exception as e:
