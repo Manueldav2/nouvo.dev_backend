@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { config } from '@/app/config';
+import { config } from '../../../app/config';
 
 export async function POST(req: Request) {
   try {
