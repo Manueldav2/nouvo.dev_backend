@@ -24,41 +24,49 @@ app = Flask(__name__)
 ALLOWED_ORIGINS = [
     'https://nouvo.dev',
     'https://nouvo-dev.web.app',
-    'http://localhost:3000',
-    'https://nouvo-dev-backend-4fd39a72f7b1.herokuapp.com'
+    'http://localhost:3000'
 ]
 
 # Configure CORS with more specific settings
 CORS(app, 
      resources={r"/*": {
-         "origins": "*",  # Allow all origins for now
+         "origins": ALLOWED_ORIGINS,
          "methods": ["GET", "POST", "OPTIONS"],
          "allow_headers": ["Content-Type", "Authorization", "Accept"],
          "expose_headers": ["Content-Type", "Authorization"],
          "supports_credentials": True,
-         "max_age": 3600
+         "max_age": 3600,
+         "credentials": True
      }})
 
 # Add CORS headers to all responses
 @app.after_request
 def add_cors_headers(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    response.headers.add('Access-Control-Max-Age', '3600')
-    return response
-
-# Handle OPTIONS requests for all routes
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = app.make_default_options_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
+    origin = request.headers.get('Origin')
+    
+    if origin in ALLOWED_ORIGINS:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Vary', 'Origin')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
         response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
         response.headers.add('Access-Control-Allow-Credentials', 'true')
         response.headers.add('Access-Control-Max-Age', '3600')
+    
+    return response
+
+# Handle preflight requests
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        origin = request.headers.get('Origin')
+        if origin in ALLOWED_ORIGINS:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+            response.headers.add('Vary', 'Origin')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Max-Age', '3600')
         return response
 
 # Configure OpenAI
