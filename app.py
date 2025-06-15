@@ -130,8 +130,11 @@ def generate():
         def get_openai_response():
             try:
                 logger.info("Attempting OpenAI API call")
+                if not openai.api_key:
+                    raise Exception("OpenAI API key is not configured")
+                
                 response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=[
                         {
                             "role": "system",
@@ -166,10 +169,22 @@ def generate():
             logger.info("Successfully received OpenAI response")
         except Exception as e:
             logger.error(f"OpenAI API error: {str(e)}")
-            return jsonify({
-                'error': 'Our AI service is temporarily unavailable. Please try again in a few minutes.',
-                'details': str(e) if app.debug else None
-            }), 503
+            error_message = str(e)
+            if "API key" in error_message:
+                return jsonify({
+                    'error': 'Service configuration error. Please contact support.',
+                    'details': 'API key issue' if app.debug else None
+                }), 503
+            elif "rate limit" in error_message.lower():
+                return jsonify({
+                    'error': 'Service is busy. Please try again in a few minutes.',
+                    'details': 'Rate limit exceeded' if app.debug else None
+                }), 503
+            else:
+                return jsonify({
+                    'error': 'Our AI service is temporarily unavailable. Please try again in a few minutes.',
+                    'details': error_message if app.debug else None
+                }), 503
 
         if not response.choices or not response.choices[0].message.content:
             logger.error("Empty response from OpenAI API")
