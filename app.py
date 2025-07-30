@@ -25,7 +25,8 @@ if missing_vars:
     raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 # Get allowed origins from environment
-ALLOWED_ORIGINS = os.getenv('FRONTEND_URL', 'https://nouvo.dev').split(',')
+DEFAULT_ORIGINS = 'https://nouvo.dev,https://nouvo-dev.web.app,https://nouvo-ai-95cf2190cd12.herokuapp.com'
+ALLOWED_ORIGINS = os.getenv('FRONTEND_URL', DEFAULT_ORIGINS).split(',')
 logger.info(f"Allowed origins: {ALLOWED_ORIGINS}")
 
 app = Flask(__name__)
