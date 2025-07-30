@@ -18,27 +18,39 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+# Required environment variables
+REQUIRED_ENV_VARS = ['OPENAI_API_KEY', 'FRONTEND_URL']
+missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
+if missing_vars:
+    raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+# Get allowed origins from environment
+ALLOWED_ORIGINS = os.getenv('FRONTEND_URL', 'https://nouvo.dev').split(',')
+logger.info(f"Allowed origins: {ALLOWED_ORIGINS}")
+
 app = Flask(__name__)
+CORS(app, 
+     resources={r"/*": {
+         "origins": ALLOWED_ORIGINS,
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization", "Accept"],
+         "expose_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True,
+         "max_age": 3600,
+         "credentials": True
+     }})
 
-# Define allowed origins
-ALLOWED_ORIGINS = [
-    'https://nouvo.dev',
-    'https://nouvo-dev.web.app',
-    'http://localhost:3000'
-]
-
-# Use only flask-cors for CORS handling
-CORS(app,
-     origins=ALLOWED_ORIGINS,
-     supports_credentials=True,
-     methods=["GET", "POST", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization", "Accept"],
-     max_age=3600)
-
-# Configure OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
-if not openai.api_key:
-    logger.error("OpenAI API key is not set in environment variables")
+# Configure OpenAI with error handling
+try:
+    openai.api_key = os.getenv('OPENAI_API_KEY')
+    if not openai.api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
+    # Validate API key format
+    if not openai.api_key.startswith('sk-') or len(openai.api_key) < 40:
+        raise ValueError("OPENAI_API_KEY appears to be invalid")
+except Exception as e:
+    logger.critical(f"Failed to configure OpenAI: {str(e)}")
+    raise
 
 def retry_on_failure(max_retries=3, delay=1):
     def decorator(func):
